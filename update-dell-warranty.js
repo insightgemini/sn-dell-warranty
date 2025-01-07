@@ -1,59 +1,56 @@
 /*This script will query the cmdb_ci_computer table for all computers that have a serial number and a manufacturer name that contains Dell. It will then query the Dell warranty API with each serial number, parse the
 response to determine if there is a valid warranty for the given serial number and if so, insert or update the u_dell_warranty table with the warranty info. */
 
-/*var CompanySysIds = ['0d0a10d0fc93f800546bb8590e0b58b7',  // Dell
-					 '8edce90a414589409cf642b322142a1e',  // Dell
-					 'ab0c823c989738004675224672b91bcb',  // Dell Inc
-					 'b7e7d7d8c0a8016900a5d7f291acce5c',  // Dell Inc.
-					 'a8f99c90fc93f800546bb8590e0b58fe']; // Dell Incorporated */
-
 var CompanySysIds = ['2649dcf31b8d5a901f76db5fe54bcb70',  // Dell Corporation Limited (ONT)
 					 'd34910371b8d5a901f76db5fe54bcb7b']; // Dell Marketing L.P. (US)
 
-function Main(){
-	var record = new GlideRecord('cmdb_ci_computer');
-	record.addQuery('manufacturer', 'IN', CompanySysIds);
-	record.addNotNullQuery('serial_number');
-	record.query();
-	
-	var counter = 0;
-	var apiLimit = 10000;
+function Main() {
+    var record = new GlideRecord('cmdb_ci_computer');
+    record.addQuery('manufacturer', 'IN', CompanySysIds);
+    record.addNotNullQuery('serial_number');
+    record.query();
+
+    var counter = 0;
+    var apiLimit = 10000;
 	//gs.log('There are '+record.getRowCount()+' records to check for Dell Warranty status',"update-dell-warranty");
-	while (record.next() ) {
-		if (counter < apiLimit) {
-			var needsUpdate = CheckNeedsUpdate(record.serial_number);
-			if (needsUpdate) {
+    while (record.next()) {
+        if (counter < apiLimit) {
+            var needsUpdate = CheckNeedsUpdate(record.serial_number);
+            if (needsUpdate) {
 				//gs.log('Querying Dell Warranty API:'+' Serial Number: '+record.serial_number+' Manufacturer: '+record.manufacturer,"update-dell-warranty");
-				var request = new RESTMessage('Dell Warranty Sandbox', 'get');
-				request.setStringParameter('svctags', record.serial_number);
-				var response = request.execute();
+                var request = new RESTMessage('Dell Warranty Sandbox', 'get');
+                request.setStringParameter('svctags', record.serial_number);
+                var response = request.execute();
 				//gs.log('Dell Warranty API Response: '+response.getBody(),"update-dell-warranty");
-				
-				//JSONParser Script Include is available with the JSON Web Service plugin
-				var parser = new JSONParser();
-				var parsed = parser.parse(response.getBody());
-				var gotResult = parsed.GetAssetWarrantyResponse.GetAssetWarrantyResult.Response;
-				if (gotResult != null){
-					var warranty = parsed.GetAssetWarrantyResponse.GetAssetWarrantyResult.Response.DellAsset.Warranties.Warranty;
-					//gs.log('Dell Warranty: '+warranty,"update-dell-warranty");
-					if (warranty !== undefined && warranty !== null){		
-						for (var i = 0; warranty[i]; i++) {
-							var existingWarranty = CheckExistingWarranty(record.serial_number, warranty[i]);
-							if (existingWarranty == true) {
-								UpdateWarranty(record.serial_number, warranty[i]);
-							} else {
-								InsertWarranty(record.serial_number, warranty[i]);
-							}
-						}
-					} else {
-						//gs.log('Dell Warranty response did not define a warranty for '+record.serial_number,"update-dell-warranty");
-					}
-				}
-	
-			}
-			counter++;
-		}
-	}
+
+                // Parse the response body using JSON.parse
+		        try {
+		            var parsed = JSON.parse(response.getBody());
+		            var gotResult = parsed.GetAssetWarrantyResponse.GetAssetWarrantyResult.Response;
+		            if (gotResult != null) {
+		                var warranty = parsed.GetAssetWarrantyResponse.GetAssetWarrantyResult.Response.DellAsset.Warranties.Warranty;
+						//gs.log('Dell Warranty: '+warranty,"update-dell-warranty");
+		                if (warranty !== undefined && warranty !== null) {
+		                    for (var i = 0; warranty[i]; i++) {
+		                        var existingWarranty = CheckExistingWarranty(record.serial_number, warranty[i]);
+		                        if (existingWarranty == true) {
+		                            UpdateWarranty(record.serial_number, warranty[i]);
+		                        } else {
+		                            InsertWarranty(record.serial_number, warranty[i]);
+		                        }
+		                    }
+		                } else {
+							//gs.log('Dell Warranty response did not define a warranty for '+record.serial_number,"update-dell-warranty");
+		                }
+		            }
+		        } catch (e) {
+		            // Handle JSON parsing errors
+		            gs.log('Error parsing JSON response: ' + e.message, "update-dell-warranty");
+		        }
+            }
+            counter++;
+        }
+    }
 }
 
 // Check if the Warranty EndDate is > Now (Warranty is Active)
