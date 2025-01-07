@@ -1,11 +1,14 @@
 /*This script will query the cmdb_ci_computer table for all computers that have a serial number and a manufacturer name that contains Dell. It will then query the Dell warranty API with each serial number, parse the
 response to determine if there is a valid warranty for the given serial number and if so, insert or update the u_dell_warranty table with the warranty info. */
 
-var CompanySysIds = ['0d0a10d0fc93f800546bb8590e0b58b7',  // Dell
+/*var CompanySysIds = ['0d0a10d0fc93f800546bb8590e0b58b7',  // Dell
 					 '8edce90a414589409cf642b322142a1e',  // Dell
 					 'ab0c823c989738004675224672b91bcb',  // Dell Inc
 					 'b7e7d7d8c0a8016900a5d7f291acce5c',  // Dell Inc.
-					 'a8f99c90fc93f800546bb8590e0b58fe']; // Dell Incorporated
+					 'a8f99c90fc93f800546bb8590e0b58fe']; // Dell Incorporated */
+
+var CompanySysIds = ['2649dcf31b8d5a901f76db5fe54bcb70',  // Dell Corporation Limited (ONT)
+					 'd34910371b8d5a901f76db5fe54bcb7b']; // Dell Marketing L.P. (US)
 
 function Main(){
 	var record = new GlideRecord('cmdb_ci_computer');
@@ -15,16 +18,16 @@ function Main(){
 	
 	var counter = 0;
 	var apiLimit = 10000;
-	//gs.log('There are '+record.getRowCount()+' records to check for Dell Warranty status');
+	//gs.log('There are '+record.getRowCount()+' records to check for Dell Warranty status',"update-dell-warranty");
 	while (record.next() ) {
 		if (counter < apiLimit) {
 			var needsUpdate = CheckNeedsUpdate(record.serial_number);
 			if (needsUpdate) {
-				//gs.log('Querying Dell Warranty API:'+' Serial Number: '+record.serial_number+' Manufacturer: '+record.manufacturer);
+				//gs.log('Querying Dell Warranty API:'+' Serial Number: '+record.serial_number+' Manufacturer: '+record.manufacturer,"update-dell-warranty");
 				var request = new RESTMessage('Dell Warranty Sandbox', 'get');
 				request.setStringParameter('svctags', record.serial_number);
 				var response = request.execute();
-				//gs.log('Dell Warranty API Response: '+response.getBody());
+				//gs.log('Dell Warranty API Response: '+response.getBody(),"update-dell-warranty");
 				
 				//JSONParser Script Include is available with the JSON Web Service plugin
 				var parser = new JSONParser();
@@ -32,7 +35,7 @@ function Main(){
 				var gotResult = parsed.GetAssetWarrantyResponse.GetAssetWarrantyResult.Response;
 				if (gotResult != null){
 					var warranty = parsed.GetAssetWarrantyResponse.GetAssetWarrantyResult.Response.DellAsset.Warranties.Warranty;
-					//gs.log('Dell Warranty: '+warranty);
+					//gs.log('Dell Warranty: '+warranty,"update-dell-warranty");
 					if (warranty !== undefined && warranty !== null){		
 						for (var i = 0; warranty[i]; i++) {
 							var existingWarranty = CheckExistingWarranty(record.serial_number, warranty[i]);
@@ -43,7 +46,7 @@ function Main(){
 							}
 						}
 					} else {
-						//gs.log('Dell Warranty response did not define a warranty for '+record.serial_number);
+						//gs.log('Dell Warranty response did not define a warranty for '+record.serial_number,"update-dell-warranty");
 					}
 				}
 	
@@ -57,10 +60,10 @@ function Main(){
 function CheckActive(a_end_date) {
 	var nowDateTime = gs.nowDateTime();
 	if (a_end_date > nowDateTime) {
-		//gs.log('CheckActive() - Now: '+nowDateTime+' WarrantyEnd: '+a_end_date+' Active: true');
+		//gs.log('CheckActive() - Now: '+nowDateTime+' WarrantyEnd: '+a_end_date+' Active: true',"update-dell-warranty");
 		return true;
 	} else {
-		//gs.log('CheckActive() - Now: '+nowDateTime+' WarrantyEnd: '+a_end_date+' Active: false');
+		//gs.log('CheckActive() - Now: '+nowDateTime+' WarrantyEnd: '+a_end_date+' Active: false',"update-dell-warranty");
 		return false;
 	}
 }
@@ -85,32 +88,32 @@ function CheckNeedsUpdate(a_serial_number) {
 		1 year = 31536000 
 */
 		if (timeUntilExpiration > 31536000 && timeSinceUpdated > 5184000) {
-			//gs.log("[Dell Warranty] Expiration > 1 year away and Updated > 60 days ago");
+			//gs.log("[Dell Warranty] Expiration > 1 year away and Updated > 60 days ago","update-dell-warranty");
 			return true;
 		} else if (timeUntilExpiration < 31536000 && timeSinceUpdated > 2592000) {
-			//gs.log("[Dell Warranty] Expiration < 1 year away and Updated > 30 days ago");
+			//gs.log("[Dell Warranty] Expiration < 1 year away and Updated > 30 days ago","update-dell-warranty");
 			return true;
 		} else if (timeUntilExpiration < 7776000 && timeUntilExpiration > 3888000 && timeSinceUpdated > 1296000) {
-			//gs.log("[Dell Warranty] Expiration between 45 and 90 days away and Updated > 15 days ago");
+			//gs.log("[Dell Warranty] Expiration between 45 and 90 days away and Updated > 15 days ago","update-dell-warranty");
 			return true;
 		} else if (timeUntilExpiration < 3888000 && timeUntilExpiration > 2592000 && timeSinceUpdated > 604800) {
-			//gs.log("[Dell Warranty] Expiration between 30 and 45 days away and Updated > 7 days ago");
+			//gs.log("[Dell Warranty] Expiration between 30 and 45 days away and Updated > 7 days ago","update-dell-warranty");
 			return true;
 		} else if (timeUntilExpiration > -864000 && timeUntilExpiration < 2592000 && timeSinceUpdated > 86400) {
-			//gs.log("[Dell Warranty] Expiration between -10 and 30 days away and Updated > 24 hours ago");
+			//gs.log("[Dell Warranty] Expiration between -10 and 30 days away and Updated > 24 hours ago","update-dell-warranty");
 			return true;
 		} else if (timeUntilExpiration > -5184000 && timeUntilExpiration < -864000 && timeSinceUpdated > 2592000) {
-			//gs.log("[Dell Warranty] Expired between -10 and -60 days ago and Updated > 30 hours ago");
+			//gs.log("[Dell Warranty] Expired between -10 and -60 days ago and Updated > 30 hours ago","update-dell-warranty");
 			return true;
 		} else if (timeUntilExpiration < -5184000) {
-			//gs.log("[Dell Warranty] Expired > 60 days ago");
+			//gs.log("[Dell Warranty] Expired > 60 days ago","update-dell-warranty");
 			return false;
 		} else {
-			//gs.log("[Dell Warranty] Catch All Else");
+			//gs.log("[Dell Warranty] Catch All Else","update-dell-warranty");
 			return false;
 		}
 	}
-	//gs.log("[Dell Warranty] No existing record of serial number, perform the API call/update");
+	//gs.log("[Dell Warranty] No existing record of serial number, perform the API call/update","update-dell-warranty");
 	return true;
 }
 
@@ -123,11 +126,11 @@ function CheckExistingWarranty(a_serial_number, a_warranty) {
 	var count = gr.getRowCount();
 	if (count > 0) {
 		// Matching warranty found, update instead of insert.
-		//gs.log('Check for existing warranty found a match, updating entry.');
+		//gs.log('Check for existing warranty found a match, updating entry.',"update-dell-warranty");
 		return true;
 	} else {
 		// No matching warranty found, insert the new data.
-		//gs.log('Check for existing warranty found no match, inserting entry.');
+		//gs.log('Check for existing warranty found no match, inserting entry.',"update-dell-warranty");
 		return false;
 	}
 }
