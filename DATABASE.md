@@ -20,3 +20,9 @@ Table Name = cmdb_ci_computer
 Table Fields =  manufacturer
 				serial_number
 
+
+Setup of REST API to 'Dell Warranty Sandbox'
+https://thesnowball.co/how-to-create-a-rest-message-with-restmessagev2-api/#:~:text=To%20send%20a%20REST%20message%20in%20ServiceNow%2C%20you,API%20to%20send%20a%20REST%20message%20in%20ServiceNow%3A
+https://www.hull1.com/scriptit/2020/08/28/dell-api-warranty-lookup.html
+
+https://api.dell.com or key: https://api.dell.com/support/v2/assetinfo/warranty

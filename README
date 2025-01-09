@@ -1,1 +1,90 @@
 This script will query the cmdb_ci_computer table for all computers that have a serial number and a manufacturer name that contains Dell. It will then query the Dell warranty API with each serial number, parse the response to determine if there is a valid warranty for the given serial number and if so, insert or update the u_dell_warranty table with the warranty info.
+
+
+Creating a ServiceNow OAuth Profile
+To sety this up you need to create a OAuth Profile for Dell TechDirect Endpoint
+
+Navigate to All -> System OAuth -> Application Registry
+Click New
+Select "Connect to an OAuth Provider (simplified)"
+Enter the following configuration options
+	Name				: Dell TechDirect Warranty API
+	Client ID			: <obtained from Dell>
+	Client Secret		: <obtained from Dell>
+	Default Grant Type	: Client Credentials
+	Token URL			: https://apigtwb2c.us.dell.com/auth/oauth/v2/token
+	Redirect URL		: [set blank]
+	Send Credentails	: In Request Body (Form URL Encoded)
+Save the Configuration
+
+Scroll to OAuth Entity Profiles
+Double click on the Insert a new row
+	Name 			: "Dell TechDirect API default_profile"
+	Is default		: true
+	Grant Type		: Client Credentials
+	OAuth Provider	: "Dell TechDirect Warranty API"
+
+
+Creating REST Message configuration
+To setup this up you need to create an Outbound REST API config which can be called by the script. Here we will add all the API Calls that are available.
+                  
+Navigate to All -> System Web Services -> Outbound -> REST Message
+Click New
+Enter the following configuration options
+	Name				: Dell Warranty Production
+	Description			: 
+	Endpoint			: https://apigtwb2c.us.dell.com/PROD/sbil/eapi/v5/assets
+	Authentication Type	: Oauth 2.0
+	OAuth Profile		: Dell TechDirect API default_profile
+	Accessible from		: This applicaton scope only
+Save the Configuration
+
+Update HTTP Methods
+Scroll down to HTTP Methods
+Click New
+Enter the following configuration options
+	Name				: AssetDetails GET
+	HTTP Method			: GET
+	Endpoint			: https://apigtwb2c.us.dell.com/PROD/sbil/eapi/v5/asset-components
+	Authentication Type	: Inherit from parent
+Click HTTP Request tab
+Enter the following under HTTP Query Parameters
+	Name	servicetag
+	Value	22MH224
+Save the Configuration
+Click New
+Enter the following configuration options
+	Name				: AssetHeader GET
+	HTTP Method			: GET
+	Endpoint			: https://apigtwb2c.us.dell.com/PROD/sbil/eapi/v5/assets
+	Authentication Type	: Inherit from parent
+Click HTTP Request tab
+Enter the following under HTTP Query Parameters
+	Name	servicetags
+	Value	22MH224
+Save the Configuration
+Click New
+Enter the following configuration options
+	Name				: AssetSummary GET
+	HTTP Method			: GET
+	Endpoint			: https://apigtwb2c.us.dell.com/PROD/sbil/eapi/v5/asset-entitlement-components
+	Authentication Type	: Inherit from parent
+Click HTTP Request tab
+Enter the following under HTTP Query Parameters
+	Name	servicetag
+	Value	22MH224
+Save the Configuration
+Click New
+Enter the following configuration options
+	Name				: AssetWarranty GET
+	HTTP Method			: GET
+	Endpoint			: https://apigtwb2c.us.dell.com/PROD/sbil/eapi/v5/asset-entitlements
+	Authentication Type	: Inherit from parent
+Click HTTP Request tab
+Enter the following under HTTP Query Parameters
+	Name	servicetags
+	Value	22MH224
+Save the Configuration
+
+
+(Can be packaged in an Update Set)

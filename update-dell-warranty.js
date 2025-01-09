@@ -18,8 +18,8 @@ function Main() {
             var needsUpdate = CheckNeedsUpdate(record.serial_number);
             if (needsUpdate) {
 				//gs.log('Querying Dell Warranty API:'+' Serial Number: '+record.serial_number+' Manufacturer: '+record.manufacturer,"update-dell-warranty");
-                var request = new RESTMessage('Dell Warranty Sandbox', 'get');
-                request.setStringParameter('svctags', record.serial_number);
+                var request = new RESTMessage('Dell Warranty Sandbox', 'AssetWarranty GET');
+                request.setStringParameter('servicetags', record.serial_number);
                 var response = request.execute();
 				//gs.log('Dell Warranty API Response: '+response.getBody(),"update-dell-warranty");
 
