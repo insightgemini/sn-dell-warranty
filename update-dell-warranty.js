@@ -5,6 +5,11 @@
 ## to determine if there is a valid warranty for the given serial number and
 ## if so, insert or update the u_dell_warranty table with the warranty info. 
 ## 
+##  https://github.com/mikeder/sn-dell-warranty/tree/master
+##
+##  https://github.com/macias-daniel/Dell_Warranty_Import/blob/master/README.md
+##  https://www.hull1.com/scriptit/2020/08/28/dell-api-warranty-lookup.html
+##
    ########################################################################## */
 /* ##########################################################################
 ## update-dell-warranty.js
