@@ -1,13 +1,33 @@
-/*This script will query the cmdb_ci_computer table for all computers that have a serial number and a manufacturer name that contains Dell. It will then query the Dell warranty API with each serial number, parse the
-response to determine if there is a valid warranty for the given serial number and if so, insert or update the u_dell_warranty table with the warranty info. */
+/* ##########################################################################
+## This script will query the cmdb_ci_computer table for all computers that 
+## have a serial number and a manufacturer name that contains Dell. It will
+## then query the Dell warranty API with each serial number, parse the response
+## to determine if there is a valid warranty for the given serial number and
+## if so, insert or update the u_dell_warranty table with the warranty info. 
+## 
+   ########################################################################## */
+/* ##########################################################################
+## update-dell-warranty.js
+   ########################################################################## */
+
+/* #####################        VERSION CONTROL        ######################
+##  Version			Date 		Description
+##		0.01		2025-01-14	Initial version under version control (re-dated)
+##		0.0x
+*/
 
 var CompanySysIds = ['2649dcf31b8d5a901f76db5fe54bcb70',  // Dell Corporation Limited (ONT)
 					 'd34910371b8d5a901f76db5fe54bcb7b']; // Dell Marketing L.P. (US)
+//var excludedModels = ['Dell Corporation Limited Optiplex', 'Dell Corporation Limited Latitude']; // Replace with desired excluded models
 
 function Main() {
+
+
     var record = new GlideRecord('cmdb_ci_computer');
     record.addQuery('manufacturer', 'IN', CompanySysIds);
+//    record.addQuery('model_id', 'NOT IN', excludedModels);
     record.addNotNullQuery('serial_number');
+//    record.addNotNullQuery('22MH224');
     record.query();
 
     var counter = 0;
@@ -15,19 +35,40 @@ function Main() {
 	//gs.log('There are '+record.getRowCount()+' records to check for Dell Warranty status',"update-dell-warranty");
     while (record.next()) {
         if (counter < apiLimit) {
-            var needsUpdate = CheckNeedsUpdate(record.serial_number);
-            if (needsUpdate) {
-				//gs.log('Querying Dell Warranty API:'+' Serial Number: '+record.serial_number+' Manufacturer: '+record.manufacturer,"update-dell-warranty");
-                var request = new RESTMessage('Dell Warranty Sandbox', 'AssetWarranty GET');
-                request.setStringParameter('servicetags', record.serial_number);
+            // #########################################################################################################################
+        	gs.print('The following CI is being checked: '+ record.serial_number);
+            if (CheckNeedsUpdate(record.serial_number) === true) {
+                // #########################################################################################################################
+				gs.print('The following CI requires update : '+record.serial_number);
+
+                var request = new RESTMessage('Dell Warranty Sandbox', 'AssetSummary GET');
+
+                // #########################################################################################################################
+//				gs.log('Querying Dell Warranty API:'+' Serial Number: '+record.serial_number+' Manufacturer: '+record.manufacturer,"update-dell-warranty");
+				gs.print('Querying Dell Warranty API:'+' Serial Number: '+record.serial_number+' Manufacturer: '+record.manufacturer);
+				var requestBody = {"servicetags":record.serial_number};
+//                request.setStringParameter('servicetags', record.serial_number);
+                request.setRequestBody(JSON.stringify(requestBody));
+                // Send Request to Server
                 var response = request.execute();
-				//gs.log('Dell Warranty API Response: '+response.getBody(),"update-dell-warranty");
+
+                // #########################################################################################################################
+//				gs.log('Dell Warranty API Response: '+response.getBody(),"update-dell-warranty");
+//				gs.print('Dell Warranty API Response: '+ response.status + ' Response body '+ response.getBody());
 
                 // Parse the response body using JSON.parse
 		        try {
+
+	                // #########################################################################################################################
+//					gs.log('Attempting to Parse the response.',"update-dell-warranty");
+					gs.print('Attempting to Parse the response.');
 		            var parsed = JSON.parse(response.getBody());
+					gs.print('Parsed Contents: '+ parsed);
+
 		            var gotResult = parsed.GetAssetWarrantyResponse.GetAssetWarrantyResult.Response;
-		            if (gotResult != null) {
+
+					gs.print('Dell Warranty Response:'+' Serial Number: '+record.serial_number+' Manufacturer: '+record.manufacturer);
+		            if (gotResult !== null) {
 		                var warranty = parsed.GetAssetWarrantyResponse.GetAssetWarrantyResult.Response.DellAsset.Warranties.Warranty;
 						//gs.log('Dell Warranty: '+warranty,"update-dell-warranty");
 		                if (warranty !== undefined && warranty !== null) {
@@ -45,8 +86,11 @@ function Main() {
 		            }
 		        } catch (e) {
 		            // Handle JSON parsing errors
-		            gs.log('Error parsing JSON response: ' + e.message, "update-dell-warranty");
+//		            gs.log('Error parsing JSON response: ' + e.message, "update-dell-warranty");
+		            gs.print('Error parsing JSON response: ' + e.message);
 		        }
+            } else {
+				gs.print('The following CI does not require updating : '+record.serial_number);
             }
             counter++;
         }
@@ -55,6 +99,7 @@ function Main() {
 
 // Check if the Warranty EndDate is > Now (Warranty is Active)
 function CheckActive(a_end_date) {
+	gs.print('Entering CheckActive function');
 	var nowDateTime = gs.nowDateTime();
 	if (a_end_date > nowDateTime) {
 		//gs.log('CheckActive() - Now: '+nowDateTime+' WarrantyEnd: '+a_end_date+' Active: true',"update-dell-warranty");
@@ -67,6 +112,7 @@ function CheckActive(a_end_date) {
 
 // Check if an update is due per the Dell API access guidelines
 function CheckNeedsUpdate(a_serial_number) {
+	gs.print('Entering CheckNeedsUpdate function');
 	var gr = new GlideRecord('u_dell_warranty');
 	gr.addQuery('u_serialnumber', a_serial_number);
 	gr.query();
@@ -111,11 +157,13 @@ function CheckNeedsUpdate(a_serial_number) {
 		}
 	}
 	//gs.log("[Dell Warranty] No existing record of serial number, perform the API call/update","update-dell-warranty");
+	gs.print("[Dell Warranty] No existing record of serial number, perform the API call/update");
 	return true;
 }
 
 // Check if there is already a warranty record for this serial number
 function CheckExistingWarranty(a_serial_number, a_warranty) {
+	gs.print('Entering CheckExisting Warranty function');
 	var gr = new GlideRecord('u_dell_warranty');
 	gr.addQuery('u_serialnumber', a_serial_number);
 	gr.addQuery('u_itemnumber', a_warranty.ItemNumber);
@@ -133,6 +181,7 @@ function CheckExistingWarranty(a_serial_number, a_warranty) {
 }
 
 function InsertWarranty(a_serial_number, a_warranty) {
+	gs.print('Entering InsertWarranty function');
 	try {
 		var gr = new GlideRecord('u_dell_warranty');
 		gr.initialize();
@@ -152,11 +201,13 @@ function InsertWarranty(a_serial_number, a_warranty) {
 		gr.u_active = CheckActive(a_warranty.EndDate);
 		gr.insert();
 	} catch (e) {
-		gs.log('Error while Inserting Dell Warranty: '+e);
+//		gs.log('Error while Inserting Dell Warranty: '+e);
+		gs.print('Error while Inserting Dell Warranty: '+e);
 	}
 }
 
 function UpdateWarranty(a_serial_number, a_warranty) {
+	gs.print('Entering UpdateWarranty function');
 	try {
 		var gr = new GlideRecord('u_dell_warranty');
 		gr.addQuery('u_serialnumber', a_serial_number);
